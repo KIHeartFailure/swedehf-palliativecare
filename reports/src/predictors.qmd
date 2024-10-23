@@ -1,0 +1,144 @@
+```{r}
+#| label: logregfunc
+#| cache: true
+#| cache.comments: false
+#| output: false
+
+logregfunc <- function(data = rsdata, impdata = imprsdata, xvar) {
+  logreg <- with(impdata, glm(formula(paste0(xvar, " == 'Yes' ~ ", paste(modvars, collapse = " + "))),
+    family = binomial(link = "logit")
+  ))
+  logregsum <- summary(pool(logreg))
+
+  logregout <- tibble(
+    var = as.character(logregsum$term),
+    or = exp(logregsum$estimate),
+    lci = exp(logregsum$estimate - global_z05 * logregsum$std.error),
+    uci = exp(logregsum$estimate + global_z05 * logregsum$std.error),
+    p = fn(logregsum$p.value, dig = 3, p = TRUE),
+    orci = paste0(
+      fn(or, 2), " (",
+      fn(lci, 2), "-",
+      fn(uci, 2), ")"
+    ),
+  ) %>%
+    filter(!var %in% c("(Intercept)")) %>%
+    select(var, orci, p)
+
+  logreguni <- function(yvar) {
+    logreg <- with(impdata, glm(formula(paste0(xvar, " == 'Yes' ~ ", yvar)),
+      family = binomial(link = "logit")
+    ))
+    logregsum <- summary(pool(logreg))
+    logregout <- tibble(
+      var = as.character(logregsum$term),
+      or = exp(logregsum$estimate),
+      lci = exp(logregsum$estimate - global_z05 * logregsum$std.error),
+      uci = exp(logregsum$estimate + global_z05 * logregsum$std.error),
+      p = fn(logregsum$p.value, dig = 3, p = TRUE),
+      orci = paste0(
+        fn(or, 2), " (",
+        fn(lci, 2), "-",
+        fn(uci, 2), ")"
+      ),
+    ) %>%
+      filter(!var %in% c("(Intercept)")) %>%
+      select(var, orci, p)
+  }
+
+  logunitmp <- lapply(modvars,
+    FUN = logreguni
+  )
+  logunitmp <- bind_rows(logunitmp)
+
+  logboth <- bind_cols(
+    logunitmp %>% select(var, orci, p),
+    logregout %>% select(orci, p)
+  ) %>%
+    mutate(
+      var = str_remove_all(var, fixed("Yes")),
+      var = str_replace_all(var, "shf_sos_com_", "sos_com_")
+    )
+
+  logboth <- left_join(logboth,
+    metavars %>%
+      select(variable, label),
+    by = c("var" = "variable")
+  ) %>%
+    mutate(
+      var = coalesce(label, var),
+      var = case_when(
+        var == "shf_indexyear_cat2021-2023" ~ "Year 2021-2023 vs 2017-2020",
+        var == "shf_durationhf>=6" ~ "Duration of HF (months) >=6 vs < 6",
+        var == "shf_sexMale" ~ "Male vs Female",
+        var == "shf_age_cat70-80" ~ "Age (years) 70-80 vs <70",
+        var == "shf_age_cat>80" ~ "Age (years) >80 vs <70",
+        var == "shf_locationIn-patient" ~ "In-patient vs Out-patient",
+        var == "shf_followuplocation_catHospital" ~ "Follow-up hospital vs Primary care/Other",
+        var == "shf_ef_catHFmrEF (40-49)" ~ "HFmrEF vs HFrEF",
+        var == "shf_ef_catHFpEF (>=50)" ~ "HFpEF vs HFrEF",
+        var == "shf_nyha_catIII-IV" ~ "NYHA class III-IV vs I-II",
+        var == "shf_bmi_cat>=30" ~ "BMI (kg/m²) >=30 vs <30",
+        var == "shf_bpsys_cat>=140" ~ "Systolic blood pressure (mmHg) >=140 vs <140",
+        var == "shf_heartrate_cat>70" ~ "Heart rate (beats/min) >70 vs <=70",
+        var == "shf_gfrckdepi_cat<60" ~ "eGFR (mL/min/1.73 m²) <60 vs >=60",
+        var == "shf_potassium_cat<3.5 (Hypokalemia)" ~ "Potassium (mmol/L) <3.5 (Hypokalemia) vs 3.5-5 (Normakalemia)",
+        var == "shf_potassium_cat>5 (Hyperkalemia)" ~ "Potassium (mmol/L) >5 (Hyperkalemia) vs 3.5-5 (Normakalemia)",
+        var == "shf_ntprobnp_cat3rd tertile within EF" ~ "NT-proBNP (pg/ml) 3rd tertile vs 1st tertile within EF",
+        var == "shf_ntprobnp_cat2nd tertile within EF" ~ "NT-proBNP (pg/ml) 2nd tertile vs 1st tertile within EF",
+        var == "shf_device_catCRT/ICD" ~ "ICD/CRT",
+        var == "scb_famtypeLiving alone" ~ "Living alone vs Cohabitating",
+        var == "scb_educationSecondary school" ~ "Secondary vs Compulsory school",
+        var == "scb_educationUniversity" ~ "University vs Compulsory school",
+        var == "scb_dispincome_cat3rd tertile within year" ~ "Income 3rd tertile vs 1st tertile within year",
+        var == "scb_dispincome_cat2nd tertile within year" ~ "Income 2nd tertile vs 1st tertile within year",
+        TRUE ~ var
+      )
+    ) %>%
+    select(-label)
+
+  cn <- c("Variable", rep(c("Odds Ratio (95% CI)", "p-value"), 2))
+
+  # excel
+  make_one_xlsxsheet(logboth, colnames = cn)
+
+  cn <- sanitize_text(cn)
+
+  logboth <- logboth %>%
+    mutate(
+      # so no probs
+      var = sanitize_text(var),
+      var = str_replace_all(var, fixed("²"), "\\textsuperscript{2}"),
+      var = str_replace_all(var, fixed("$>$="), "$\\geq$"),
+      var = str_replace_all(var, fixed("$<$="), "$\\leq$")
+    )
+
+  default_kable(logboth,
+    escape = FALSE,
+    col.names = cn
+  ) %>%
+    add_header_above(c(" " = 1, "Crude" = 2, "Adjusted" = 2))
+}
+```
+
+```{r}
+#| label: tbl-logreg-indicated
+#| cache: true
+#| cache.comments: false
+#| dependson: logregfunc
+#| tbl-cap: "Associations between baseline characteristics and palliatve care indicated"
+#| tbl-pos: "H"
+
+logregfunc(xvar = "shf_palliative_indicated")
+```
+
+```{r}
+#| label: tbl-logreg-given
+#| cache: true
+#| cache.comments: false
+#| dependson: logregfunc
+#| tbl-cap: "Associations between baseline characteristics and palliatve care given"
+#| tbl-pos: "H"
+
+logregfunc(xvar = "shf_palliative_given")
+```

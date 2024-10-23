@@ -1,0 +1,278 @@
+```{r}
+#| label: kmfunc
+#| cache: true
+#| cache.comments: false
+
+kmfunc <- function(time, event, eventname, rep, xvar,
+                   labposadj = ifelse(rep, c(0.08, 0.08), c(0.05, 0.05)),
+                   repymax = 1.5, data = rsdata, repdata = NULL) {
+  levs <- levels(data %>% pull(!!sym(xvar)))
+  nlevs <- length(levs)
+
+  if (!rep) {
+    fit <- survfit(formula(paste0("Surv(", time, ",", event, "== 'Yes') ~ ", xvar)),
+      data = data
+    )
+    s <- summary(fit, times = seq(0, global_followup, 1), extend = T)
+
+    plot_data <- tibble(
+      "time" = s$time,
+      "n.risk" = s$n.risk,
+      "n.event" = s$n.event,
+      "n.censor" = s$n.censor,
+      "estimate" = 1 - s$surv,
+      "strata" = s$strata
+    ) %>%
+      mutate(
+        strata = str_replace_all(strata, ">=", "\u2265"),
+        strata = fct_inorder(str_remove_all(strata, paste0(xvar, "=")))
+      )
+    ylim <- c(0, 1)
+    ylab <- paste0(eventname, " (%)")
+  }
+
+  if (rep) {
+    fit <- mcf(formula(paste0("Recur(sos_outtime, lopnr, sos_out_hosp == 'Yes') ~ ", xvar)), data = repdata)
+
+    plot_data <- tibble(
+      "time" = fit@MCF$time,
+      "n.risk" = fit@MCF$numRisk,
+      "estimate" = fit@MCF$MCF,
+      "std.error" = fit@MCF$se,
+      "strata" = fit@MCF[[xvar]]
+    ) %>%
+      mutate(
+        strata = str_replace_all(strata, ">=", "\u2265"),
+        strata = fct_rev(factor(strata))
+      )
+
+    ylim <- c(0, repymax)
+    ylab <- "Cummulative mean (/100 pts)"
+  }
+
+  annotate_data <- plot_data %>%
+    filter(time <= 366) %>%
+    group_by(strata) %>%
+    slice(n()) %>%
+    ungroup()
+
+  p <- ggplot(plot_data, aes(x = time / 30.5, y = estimate, color = strata)) +
+    geom_step(aes(linetype = strata), linewidth = 1) +
+    scale_color_manual(values = c(global_cols[1:3])) +
+    # scale_x_continuous(breaks = seq(0, endfollow, 1), limits = c(0, endfollow), expand = c(0, 0)) +
+    # scale_y_continuous(labels = scales::label_percent(suffix = ""), limits = c(0, 1), expand = c(0, 0)) +
+    scale_x_continuous(breaks = seq(0, global_followup_month, 1), limits = c(0, global_followup_month)) +
+    scale_y_continuous(labels = scales::label_percent(suffix = ""), limits = ylim) +
+    theme_classic() +
+    theme(
+      text = element_text(size = 20),
+      legend.position = "none"
+    ) +
+    labs(x = "Follow-up (months)", y = ylab) +
+    geom_text(
+      data = annotate_data,
+      aes(x = time / 30.5, y = estimate, label = strata),
+      nudge_x = 0, nudge_y = labposadj, size = 6, hjust = 0
+    ) # +
+  # annotate("text", x = 0, y = max(ylim) - max(ylim) * 0.05, label = cox, hjust = 0, size = 6)
+
+  if (!rep) {
+    # n at risk
+    table_data <- plot_data %>%
+      filter(
+        time %in% c(seq(0, global_followup_month, 1) * 30.5)
+      ) %>%
+      mutate(
+        strata = str_replace_all(strata, ">=", "\u2265"),
+        strata = fct_rev(fct_inorder(strata))
+      )
+  }
+  if (rep) {
+    # n at risk
+    # needed for n at risk
+    fitn <- survfit(formula(paste0("Surv(sos_outtime_death, sos_out_death == 'Yes') ~ ", xvar)),
+      data = data
+    )
+    sn <- summary(fitn, times = seq(0, global_followup_month * 30.5, 1), extend = T)
+
+    table_data <- tibble(
+      "time" = sn$time,
+      "n.risk" = sn$n.risk,
+      "strata" = sn$strata
+    ) %>%
+      filter(
+        time %in% c(seq(0, global_followup_month, 1) * 30.5)
+      ) %>%
+      mutate(
+        strata = str_replace_all(strata, ">=", "\u2265"),
+        strata = fct_rev(fct_inorder(str_remove_all(strata, paste0(xvar, "="))))
+      )
+  }
+
+  t <- ggplot(table_data, aes(y = strata, x = time / 30.5)) +
+    geom_text(aes(label = n.risk), size = 6) +
+    # scale_x_continuous(breaks = seq(0, endfollow, 1), limits = c(0, endfollow), expand = c(0, 0)) +
+    # scale_y_discrete(expand = c(0, 0)) +
+    scale_x_continuous(breaks = seq(0, global_followup_month, 1), limits = c(0, global_followup_month)) +
+    coord_cartesian(xlim = c(0, global_followup_month), clip = "off") +
+    labs(subtitle = "No. at risk", y = "PC") +
+    theme(
+      plot.caption = element_text(size = 20),
+      panel.background = element_blank(),
+      text = element_text(size = 20),
+      axis.text.x = element_blank(),
+      axis.ticks = element_blank(),
+      axis.title.x = element_blank(),
+      # plot.margin = unit(c(0, 1, 0, 3), "cm"), # trouble
+      # axis.text.y = element_blank()
+      # axis.text.y = element_text(margin = margin(0, 0, 0, 100))
+      axis.text.y = element_text(hjust = 0, colour = "black")
+    )
+
+  km <- (p / t) + plot_layout(height = c(1, .25))
+  create_pptx(km)
+  km
+}
+```
+
+```{r}
+#| label: fig-cicmcf-indicated
+#| cache: true
+#| cache.comments: false
+#| dependson: kmfunc
+#| fig-cap: "Cumulative incidence/Mean cumulative function by palliatve care indicated"
+#| fig-subcap: !expr outvars$name
+#| layout-ncol: 2
+#| layout-nrow: 4
+
+nr <- 1
+kmfunc(
+  time = outvars$time[nr],
+  event = outvars$var[nr],
+  eventname = outvars$shortname[nr],
+  rep = outvars$rep[nr],
+  xvar = "shf_palliative_indicated"
+)
+nr <- 2
+kmfunc(
+  time = outvars$time[nr],
+  event = outvars$var[nr],
+  eventname = outvars$shortname[nr],
+  rep = outvars$rep[nr],
+  xvar = "shf_palliative_indicated"
+)
+nr <- 3
+kmfunc(
+  time = outvars$time[nr],
+  event = outvars$var[nr],
+  eventname = outvars$shortname[nr],
+  rep = outvars$rep[nr],
+  xvar = "shf_palliative_indicated"
+)
+nr <- 4
+kmfunc(
+  time = outvars$time[nr],
+  event = outvars$var[nr],
+  eventname = outvars$shortname[nr],
+  rep = outvars$rep[nr],
+  xvar = "shf_palliative_indicated"
+)
+nr <- 5
+kmfunc(
+  time = outvars$time[nr],
+  event = outvars$var[nr],
+  eventname = outvars$shortname[nr],
+  rep = outvars$rep[nr],
+  xvar = "shf_palliative_indicated",
+  repdata = rsdatarephf
+)
+nr <- 6
+kmfunc(
+  time = outvars$time[nr],
+  event = outvars$var[nr],
+  eventname = outvars$shortname[nr],
+  rep = outvars$rep[nr],
+  xvar = "shf_palliative_indicated"
+)
+nr <- 7
+kmfunc(
+  time = outvars$time[nr],
+  event = outvars$var[nr],
+  eventname = outvars$shortname[nr],
+  rep = outvars$rep[nr],
+  xvar = "shf_palliative_indicated",
+  repdata = rsdatarepany,
+  repymax = 2.5
+)
+```
+
+```{r}
+#| label: fig-cicmcf-given
+#| cache: true
+#| cache.comments: false
+#| dependson: kmfunc
+#| fig-cap: "Cumulative incidence/Mean cumulative function by palliatve care given"
+#| fig-subcap: !expr outvars$name
+#| layout-ncol: 2
+#| layout-nrow: 4
+
+nr <- 1
+kmfunc(
+  time = outvars$time[nr],
+  event = outvars$var[nr],
+  eventname = outvars$shortname[nr],
+  rep = outvars$rep[nr],
+  xvar = "shf_palliative_given"
+)
+nr <- 2
+kmfunc(
+  time = outvars$time[nr],
+  event = outvars$var[nr],
+  eventname = outvars$shortname[nr],
+  rep = outvars$rep[nr],
+  xvar = "shf_palliative_given"
+)
+nr <- 3
+kmfunc(
+  time = outvars$time[nr],
+  event = outvars$var[nr],
+  eventname = outvars$shortname[nr],
+  rep = outvars$rep[nr],
+  xvar = "shf_palliative_given"
+)
+nr <- 4
+kmfunc(
+  time = outvars$time[nr],
+  event = outvars$var[nr],
+  eventname = outvars$shortname[nr],
+  rep = outvars$rep[nr],
+  xvar = "shf_palliative_given"
+)
+nr <- 5
+kmfunc(
+  time = outvars$time[nr],
+  event = outvars$var[nr],
+  eventname = outvars$shortname[nr],
+  rep = outvars$rep[nr],
+  xvar = "shf_palliative_given",
+  repdata = rsdatarephf %>% filter(!is.na(shf_palliative_given))
+)
+nr <- 6
+kmfunc(
+  time = outvars$time[nr],
+  event = outvars$var[nr],
+  eventname = outvars$shortname[nr],
+  rep = outvars$rep[nr],
+  xvar = "shf_palliative_given"
+)
+nr <- 7
+kmfunc(
+  time = outvars$time[nr],
+  event = outvars$var[nr],
+  eventname = outvars$shortname[nr],
+  rep = outvars$rep[nr],
+  xvar = "shf_palliative_given",
+  repdata = rsdatarepany %>% filter(!is.na(shf_palliative_given)),
+  repymax = 2.5
+)
+```

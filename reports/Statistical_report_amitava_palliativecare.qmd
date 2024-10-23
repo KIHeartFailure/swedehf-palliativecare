@@ -1,0 +1,280 @@
+---
+title: "Statistical report: Palliative care in heart failure: extent of use, predictors of use, and association with cause-specific outcomes"
+subtitle: Draft
+date: "`r Sys.Date()`"
+cover: static/ki_logo_vert_rgb.png
+editor: source
+format:
+  pdf:
+    documentclass: scrartcl
+    template-partials:
+      - "static/before-body.tex"
+      - "static/_titlepage.tex"
+    include-in-header: 
+      - "static/in-header.tex"
+    toc: true
+    toc-depth: 3
+    toc-title: Contents
+    lof: true
+    lot: true
+    cap-location: top
+    number-sections: true
+    colorlinks: false
+    keep-tex: false
+bibliography: static/references.bib
+csl: static/bmj.csl
+link-citations: true
+link-bibliography: true
+nocite: '@*'
+knitr:
+  opts_chunk: 
+    dev: cairo_pdf
+    collapse: true
+    comment: "" 
+    echo: FALSE
+    include: TRUE
+    warning: FALSE
+    message: FALSE
+    fig.pos: "H"
+    fig.path: "../output/figs/"
+    fig.height: 6
+    fig.width: 10
+    R.options:
+      knitr.graphics.auto_pdf: true
+---
+
+```{r}
+#| label: set-up-load-data
+options(knitr.kable.NA = "")
+
+# load packages, globals and project specific functions
+source(here::here("setup/setup.R"))
+
+# load data
+load(here("data/clean-data/rsdata.RData"))
+
+# load workbook to write tables to Excel
+wb <- loadWorkbook(here("output/tabs/tables.xlsx"))
+sheets <- names(wb)
+
+# load pptx file with figs
+figs <- officer::read_pptx(path = here::here("output/figs/figs.pptx"))
+pptx <- TRUE
+```           
+
+\newpage
+
+# Data
+
+## Data sources
+
+The Swedish Heart Failure Registry (SwedeHF) is an ongoing nationwide quality registry started in 2000, 
+that includes in- and out-hospital patients with HF, regardless of EF and previous history of HF[@swedehf]. 
+Around 80 variables are recorded at 
+discharge from hospital or at the outpatient visit, i.e. index date, and 
+entered into an electronic database managed by the Uppsala Clinical Research 
+Center (Uppsala, Sweden). Up to April 2017 the only inclusion criterion was a 
+clinical diagnosis of HF, which was thereafter defined according to the ICD-10 
+codes I50.0, I50.1, I50.9, I42.0, I42.6, I42.7, I25.5, I11.0, I13.0, I13.2. 
+In 2023, 69 of 76 Swedish hospitals enrolled patients in SwedeHF, which had a 59% coverage of the prevalent HF population in Sweden[@annualreport]. 
+
+SwedeHF was linked with national Swedish registries (SHFDB version 4.2.1) through the 
+Swedish personal identity number (PIN)[@pin]: 
+
+- The National Patient Register (The National Board of Health and Welfare) for additional comorbidities and outcomes
+- The Cause of Death Register[@dors] (The National Board of Health and Welfare) for outcomes death
+- Longitudinal integrated database for health insurance and labour market studies (LISA)[@lisa] 
+and the Register of the Total Population (Statistics Sweden) for socio-economic factors
+
+## Acknowledgments
+
+Please include "We thank all staff members at care units reporting into the SwedeHF registry for their contribution." 
+in the Acknowledgements of any resulting articles. 
+
+## Ethics and Informed consent
+
+The study was approved by the Swedish Ethical Review Authority, dnr 2021-04326. 
+Individual consent was not required, but patients were informed of entry into SwedeHF and able to opt‐out.
+
+## Inclusion/exclusion criteria
+
+```{r}
+#| label: tbl-flow
+#| tbl-cap: Information for flowchart
+#| tbl-pos: "H"
+
+default_kable(flow) %>%
+  row_spec(c(1, 11), bold = T)
+```
+
+First patient in: `r min(rsdata$shf_indexdtm)` and last patient in: `r max(rsdata$shf_indexdtm)` 
+from approximately `r rsdata %>% distinct(shf_centre) %>% count() %>% pull(n)` enrolling centers. 
+
+Baseline is date of visits or date of discharge for the visit/hospitalization recorded in SwedeHF. 
+
+## Definitions
+
+{{< include src/vars.qmd >}}
+
+More information on data sources, definitions etc. are found https://kiheartfailure.github.io/shfdb4/.
+
+# Statistical analysis 
+
+## General
+
+All analyses were performed using `r sessionInfo()$R.version$version.string` [@r]. 
+The level of significance is set to 5%, two-sided. No adjustment for multiple 
+comparisons were made and therefore the results should be viewed with care.
+
+## Missing data
+
+Missing data was imputed with multiple imputation (n = 10) using mice [@mice] 
+and Rubin’s rules was used for combining estimates and standard errors across imputed data sets. 
+Variables included in the model are indicated in @tbl-base-indicated. Palliative care was not included in the model. 
+Death was included as the Nelson-Aalen estimator in the model but itself not imputed since it contained no missing values.
+
+## Palliative care
+
+All analyses are performed partly for palliative care indicated and partly for palliative care given. 
+
+## Baseline characteristics
+
+Baseline characteristics are presented by palliative care. 
+Categorical variables are presented with n and percentage and tested for 
+differences between groups with the chi-square test. 
+Continuous variables are presented with median [first quartile-third quartile] and tested for 
+differences between groups with the Kruskal-Wallis test. 
+
+## Association between palliative care and baseline characteristics 
+
+The association between palliative care and selected baseline characteristics was evaluated using univariable and multivariable logistic regression models. 
+The variables were selected based on clinical relevance. 
+
+### Assumptions
+
+Possible outliers were evaluated using Cook's distance and multicollinearity was 
+evaluated using the Variance Inflation Factor (VIF) without any cause for action. TO BE CHECKED.
+
+## Association between outcomes and palliative care
+
+The following outcomes are considered: 
+
+- `r paste0(outvars$name[1], " (", outvars$shortname[1], ")")`
+- `r paste0(outvars$name[2], " (", outvars$shortname[2], ")")`
+- `r paste0(outvars$name[3], " (", outvars$shortname[3], ")")`
+- `r paste0(outvars$name[4], " (", outvars$shortname[4], ")")`
+- `r paste0(outvars$name[5], " (", outvars$shortname[5], ")")`
+- `r paste0(outvars$name[6], " (", outvars$shortname[6], ")")`
+- `r paste0(outvars$name[7], " (", outvars$shortname[7], ")")`
+
+Time to first events were presented with cumulative incidence curves and 
+the mean cumulative function was used to depict the recurrent events by palliative care. 
+
+Crude and adjusted analyses were performed where adjustment was performed for 
+variables indicated in @tbl-base-indicated. 
+
+Cox proportional hazards regressions were used to model the time to first event. Recurrent events were model using a negative binomial regression including the log of time as an offset in the model. 
+
+Data were censored at `r global_followup_month` months follow-up, 2023-12-31 or emigration from Sweden. 
+In the Cox proportional hazard regression censoring was also performed at death from other causes than the event. 
+
+Question: Should the fu time be cut at 1 year?
+
+Question: I added CVD to outcomes. OK?
+
+Question: Not possible to do comp risk models for all first event outcomes due to computational time. Please specify the primary outcome and I will compute for that only (if not death). 
+
+Comment: I have not added the incidence rare, HR ect to the figures since it will be to much info. Depending on what you want to present in the figs it is possible to add from the results in the tables to the fig yourselves. 
+
+### Assumptions
+
+The proportional hazards assumption was investigated using the scaled Schoenfeld 
+residuals leading to that `r paste0(stratavars, collapse =", ")` were stratified for in the models. 
+Possible outliers were visually inspected by plotting the dfbetas. TO BE CHECKED.
+
+\clearpage
+
+# Results
+
+```{r}
+med <- rsdata %>%
+  summarise(
+    med = fn(median(shf_age), dig = 0),
+    q1 = fn(quantile(shf_age, probs = 0.25), dig = 0),
+    q3 = fn(quantile(shf_age, probs = 0.75), dig = 0)
+  ) %>%
+  mutate(out = paste0(med, " (", q1, "-", q3, ")")) %>%
+  pull(out)
+
+percfem <- rsdata %>%
+  count(shf_sex) %>%
+  mutate(perc = fn(n / sum(n) * 100, 0)) %>%
+  filter(shf_sex == "Female") %>%
+  pull(perc)
+```
+
+The median (q1-q3) age is `r med` and `r percfem`% females. 
+
+Question: The numbers are very small but to me is also seems interesting to look at patients with an indication for palliative care comparision between those given vs those not given. Do you want just a baseline table comparing those perhaps?
+
+## Baseline characteristics
+
+{{< include src/base_tab.qmd >}}
+
+Question: Please check variables in table and entered into models. The number of variables are perhaps a bit on the large side. 
+
+## Association between palliative care and baseline characteristics
+
+{{< include src/predictors.qmd >}}
+
+\clearpage
+
+## Association between outcomes and palliative care
+
+```{r}
+medsurv <- rsdata %>%
+  summarise(
+    med = fn(median(sos_outtime_death / 30.5), dig = 0),
+    min = fn(min(sos_outtime_death / 30.5), dig = 0),
+    max = fn(max(sos_outtime_death / 30.5), dig = 0)
+  ) %>%
+  mutate(out = paste0(med, " (", min, "-", max, ")")) %>%
+  pull(out)
+
+sumsurv <- rsdata %>%
+  summarise(sumpy = fn(sum(sos_outtime_death) / 365.25, dig = 0)) %>%
+  pull(sumpy)
+```
+
+The median (min-max) follow-up is 
+`r medsurv` months for a total of `r sumsurv` patient-years of follow-up.
+
+{{< include src/outcomes.qmd >}}
+
+\clearpage
+
+{{< include src/km_figs.qmd >}}
+
+\clearpage
+
+# Reproducibility
+
+## R code
+
+The R code for all data handling and statistical analyses are found: 
+
+https://github.com/KIHeartFailure/swedehf-palliativecare. On publication
+the repository will be made public so as to 
+link to it from the resulting article for increased transparency and code sharing.
+No data or output is stored in the repository. 
+
+## R session information {#sessioninfo}
+
+```{r sessinfo}
+sessionInfo()
+```
+
+# References
+
+::: {#refs}
+:::
