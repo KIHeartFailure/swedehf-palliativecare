@@ -1,6 +1,5 @@
 ---
 title: "Statistical report: Palliative care in heart failure: extent of use, predictors of use, and association with cause-specific outcomes"
-subtitle: Draft
 date: "`r Sys.Date()`"
 cover: static/ki_logo_vert_rgb.png
 editor: source
@@ -153,7 +152,7 @@ The variables were selected based on clinical relevance.
 ### Assumptions
 
 Possible outliers were evaluated using Cook's distance and multicollinearity was 
-evaluated using the Variance Inflation Factor (VIF) without any cause for action. TO BE CHECKED.
+evaluated using the Variance Inflation Factor (VIF) without any cause for action. 
 
 ## Association between outcomes and palliative care
 
@@ -175,22 +174,17 @@ variables indicated in @tbl-base-indicated.
 
 Cox proportional hazards regressions were used to model the time to first event. Recurrent events were model using a negative binomial regression including the log of time as an offset in the model. 
 
-Data were censored at `r global_followup_month` months follow-up, 2023-12-31 or emigration from Sweden. 
-In the Cox proportional hazard regression censoring was also performed at death from other causes than the event. 
-
-Question: Should the fu time be cut at 1 year?
-
-Question: I added CVD to outcomes. OK?
-
-Question: Not possible to do comp risk models for all first event outcomes due to computational time. Please specify the primary outcome and I will compute for that only (if not death). 
-
-Comment: I have not added the incidence rare, HR ect to the figures since it will be to much info. Depending on what you want to present in the figs it is possible to add from the results in the tables to the fig yourselves. 
+Data were censored at `r global_followup_month` months follow-up, 2023-12-31, emigration from Sweden or 
+at death from other causes than the event. 
 
 ### Assumptions
 
 The proportional hazards assumption was investigated using the scaled Schoenfeld 
-residuals leading to that `r paste0(stratavars, collapse =", ")` were stratified for in the models. 
-Possible outliers were visually inspected by plotting the dfbetas. TO BE CHECKED.
+residuals leading to that `r paste0(str_remove_all(stratavars, "shf_"), collapse =", ")` 
+were stratified for in the models. 
+Palliative care showed non-proportional hazards for the outcome death and CVD (but not the other outcomes)
+and therefore the results should be viewed with some care. 
+Possible outliers were visually inspected by plotting the dfbetas without cause for action. 
 
 \clearpage
 
@@ -215,13 +209,9 @@ percfem <- rsdata %>%
 
 The median (q1-q3) age is `r med` and `r percfem`% females. 
 
-Question: The numbers are very small but to me is also seems interesting to look at patients with an indication for palliative care comparision between those given vs those not given. Do you want just a baseline table comparing those perhaps?
-
 ## Baseline characteristics
 
 {{< include src/base_tab.qmd >}}
-
-Question: Please check variables in table and entered into models. The number of variables are perhaps a bit on the large side. 
 
 ## Association between palliative care and baseline characteristics
 

@@ -219,7 +219,10 @@ outcomesfunc_outer <- function(data, impdata, impdatanb, xvar) {
 #| tbl-cap: "Association between outcomes and palliatve care indicated"
 #| tbl-pos: "H"
 
-outcomesfunc_outer(data = rsdata, impdata = imprsdata, impdatanb = imprsdata0, xvar = "shf_palliative_indicated")
+outcomesfunc_outer(
+  data = rsdata, impdata = imprsdata,
+  impdatanb = imprsdata0, xvar = "shf_palliative_indicated"
+)
 ```
 
 ```{r}
@@ -230,5 +233,8 @@ outcomesfunc_outer(data = rsdata, impdata = imprsdata, impdatanb = imprsdata0, x
 #| tbl-cap: "Association between outcomes and palliatve care given"
 #| tbl-pos: "H"
 
-outcomesfunc_outer(data = rsdata %>% filter(!is.na(shf_palliative_given)), impdata = imprsdata, impdatanb = imprsdata0, xvar = "shf_palliative_given")
+outcomesfunc_outer(
+  data = rsdata %>% filter(!is.na(shf_palliative_given)),
+  impdata = imprsdata, impdatanb = imprsdata0, xvar = "shf_palliative_given"
+)
 ```

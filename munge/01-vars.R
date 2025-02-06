@@ -77,6 +77,8 @@ tabvars <- c(
 # Variables for models (imputation, log, cox reg) ----------------------------
 
 tabvars_not_in_mod <- c(
+  "sos_com_liver",
+  "scb_child",
   "shf_palliative_given",
   "shf_age",
   "shf_nyha",
@@ -113,7 +115,7 @@ outvars <- tibble(
 ) %>%
   arrange(order)
 
-stratavars <- c("shf_location")
+stratavars <- c("shf_location", "shf_durationhf")
 
 metavars <- bind_rows(
   metavars,

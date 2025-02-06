@@ -5,8 +5,6 @@ source(here::here("setup/setup.R"))
 # Load data ---------------------------------------------------------------
 
 load(here(shfdbpath, "data/v421/rsdata421.RData"))
-# rsdata421 <- rsdata421 %>%
-#  head(10000)
 load(here(shfdbpath, paste0("/data/", datadate, "/rawData_rs.RData")))
 
 # Meta data ect -----------------------------------------------------------

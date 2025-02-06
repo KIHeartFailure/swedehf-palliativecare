@@ -264,3 +264,17 @@ basetabfunc(data = rsdata, colvar = "shf_palliative_indicated")
 
 basetabfunc(data = rsdata %>% filter(!is.na(shf_palliative_given)), colvar = "shf_palliative_given", novars = "shf_palliative_given")
 ```
+
+```{r}
+#| label: tbl-base-indicatedgiven
+#| cache: true
+#| cache.comments: false
+#| dependson: basetabfunc
+#| tbl-cap: "Baseline characteristics for patients with palliative care indicated by palliatve care given"
+#| tbl-pos: "H"
+
+basetabfunc(
+  data = rsdata %>% filter(!is.na(shf_palliative_given) & shf_palliative_indicated == "Yes"),
+  colvar = "shf_palliative_given", novars = "shf_palliative_given"
+)
+```
